@@ -1,0 +1,995 @@
+# -*- coding: utf-8 -*-
+
+# Run this app with 'python app.py and
+# visit http://127.0.0.1:8050/ in your web browser.
+
+### This code plots Illumina interop data from a csv-file, where Interop-data has been extracted to.
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.express as px
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from plotly.graph_objs.layout import YAxis, XAxis, Margin
+
+
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+# see https://plotly.com/python/px-arguments/ for more options
+
+
+##### Instrument One #####
+
+InstrumentOne = pd.read_csv('/home/File.csv')
+
+InstrumentOne['Instrument One'] = (InstrumentOne['NextSeq'] == 'Instrument One') | (InstrumentOne['NextSeq'] == 'InstrumentOne') | (InstrumentOne['NextSeq'] == 'MachineSerialNumber1')
+InstrumentOne.drop(InstrumentOne[(InstrumentOne['Instrument One']==False)].index, inplace=True)
+InstrumentOne['Cluster Density (K/mm2)'] = InstrumentOne['Cluster Density (K/mm2)'].fillna(0)
+InstrumentOne['% >=Q30'] = InstrumentOne['% >=Q30'].fillna(0)
+InstrumentOne['Clusters Passing Filter (%)'] = InstrumentOne['Clusters Passing Filter (%)'].fillna(0)
+InstrumentOne['Error Rate, Total (%)'] = InstrumentOne['Error Rate, Total (%)'].fillna(0)
+InstrumentOne['Date'] = pd.to_datetime(InstrumentOne['Sekv. datum'].astype(str), yearfirst=True)
+
+# Dataframe for last 20 runs InstrumentOne
+SubDataFrameInstrumentOne = InstrumentOne.tail(20)
+
+# Dataframe for only Mid Output InstrumentOne
+InstrumentOne['Mid Output'] = list(map(lambda x: x.startswith(('Mid','mid')), InstrumentOne['NextSeq-kit version']))
+InstrumentOne_Mid = InstrumentOne.copy()                     
+InstrumentOne_Mid.drop(InstrumentOne_Mid[(InstrumentOne_Mid['Mid Output']==False)].index, inplace=True)
+
+# Dataframe for only High Output InstrumentOne
+InstrumentOne['High Output'] = list(map(lambda x: x.startswith(('Hi','hi')), InstrumentOne['NextSeq-kit version']))
+InstrumentOne_High = InstrumentOne.copy()                     
+InstrumentOne_High.drop(InstrumentOne_High[(InstrumentOne_High['High Output']==False)].index, inplace=True)
+
+
+
+
+##### Instrument Two #####
+
+InstrumentTwo = pd.read_csv('/home/File.csv')
+
+InstrumentTwo['Instrument Two'] = (InstrumentTwo['NextSeq'] == 'Instrument Two') | (InstrumentTwo['NextSeq'] == 'InstrumentTwo') | (InstrumentTwo['NextSeq'] == 'MachineSerialNumber2')
+InstrumentTwo.drop(InstrumentTwo[(InstrumentTwo['Instrument Two']==False)].index, inplace=True)
+InstrumentTwo['Cluster Density (K/mm2)'] = InstrumentTwo['Cluster Density (K/mm2)'].fillna(0)
+InstrumentTwo['% >=Q30'] = InstrumentTwo['% >=Q30'].fillna(0)
+InstrumentTwo['Clusters Passing Filter (%)'] = InstrumentTwo['Clusters Passing Filter (%)'].fillna(0)
+InstrumentTwo['Error Rate, Total (%)'] = InstrumentTwo['Error Rate, Total (%)'].fillna(0)
+InstrumentTwo['Date'] = pd.to_datetime(InstrumentTwo['Sekv. datum'].astype(str), yearfirst=True)
+
+# Dataframe for last 20 runs InstrumentTwo
+SubDataFrameInstrumentTwo = InstrumentTwo.tail(20)
+
+# Dataframe for only Mid Output InstrumentTwo
+InstrumentTwo['Mid Output'] = list(map(lambda x: x.startswith(('Mid','mid')), InstrumentTwo['NextSeq-kit version']))
+InstrumentTwo_Mid = InstrumentTwo.copy()                     
+InstrumentTwo_Mid.drop(InstrumentTwo_Mid[(InstrumentTwo_Mid['Mid Output']==False)].index, inplace=True)
+
+# Dataframe for only High Output InstrumentTwo
+InstrumentTwo['High Output'] = list(map(lambda x: x.startswith(('Hi','hi')), InstrumentTwo['NextSeq-kit version']))
+InstrumentTwo_High = InstrumentTwo.copy()                     
+InstrumentTwo_High.drop(InstrumentTwo_High[(InstrumentTwo_High['High Output']==False)].index, inplace=True)
+
+
+#Color Scheme for ALL plots
+colors_ALL_plots = {
+	'background': '#111111',
+	'text': 'white'
+}
+
+###########################################################
+#################### Cluster Density ######################
+###########################################################
+
+
+#### Color scheme for Instrument One Cluster Density
+def SetColorsCluster(y):
+        if(y > 220):
+                return 'red'
+        elif(y < 170):
+                return 'red'
+        elif(y > 170 and y < 220):
+                return 'royalblue'
+
+#### Color scheme for Instrument Two Cluster Density
+def SetColorCluster(y):
+        if(y > 220):
+                return 'red'
+        elif(y < 170):
+                return 'red'
+        elif(y > 170 and y < 220):
+                return 'lightgreen'
+
+
+
+fig_ClusterD = make_subplots(rows=1, cols=2, subplot_titles=("Instrument One", "Instrument Two"), shared_yaxes=True)
+
+
+fig_ClusterD.update_layout(
+        plot_bgcolor=colors_ALL_plots['background'],
+        paper_bgcolor=colors_ALL_plots['background'],
+        font_color=colors_ALL_plots['text'])
+
+fig_ClusterD.update_yaxes(
+        title="Cluster Density (K/mm2)", showticklabels=True
+)
+
+
+# Graph for all runs InstrumentOne
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentOne['Date'],
+                y=InstrumentOne['Cluster Density (K/mm2)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                marker=dict(
+                color=list(map(SetColorsCluster, InstrumentOne['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne['Date'].astype(str) + "<br>Cluster Density: " + InstrumentOne['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for all runs InstrumentTwo
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentTwo['Date'],
+                y=InstrumentTwo['Cluster Density (K/mm2)'],
+                name='InstrumentTwo',
+                mode='lines+markers', 
+                marker=dict(
+                color=list(map(SetColorCluster, InstrumentTwo['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo['Date'].astype(str) + "<br>Cluster Density: " + InstrumentTwo['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Graph for Mid Output InstrumentOne
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentOne_Mid['Date'],
+                y=InstrumentOne_Mid['Cluster Density (K/mm2)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsCluster, InstrumentOne_Mid['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_Mid['Date'].astype(str) + "<br>Cluster Density: " + InstrumentOne_Mid['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentOne_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for Mid Output InstrumentTwo
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_Mid['Date'],
+                y=InstrumentTwo_Mid['Cluster Density (K/mm2)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorCluster, InstrumentTwo_Mid['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_Mid['Date'].astype(str) + "<br>Cluster Density: " + InstrumentTwo_Mid['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+# Graph for High Output InstrumentOne
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentOne_High['Date'],
+                y=InstrumentOne_High['Cluster Density (K/mm2)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsCluster, InstrumentOne_High['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_High['Date'].astype(str) + "<br>Cluster Density: " + InstrumentOne_High['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentOne_High['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for High Output InstrumentTwo
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_High['Date'],
+                y=InstrumentTwo_High['Cluster Density (K/mm2)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorCluster, InstrumentTwo_High['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_High['Date'].astype(str) + "<br>Cluster Density: " + InstrumentTwo_High['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_High['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Grapg for the last 20 runs InstrumentOne
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentOne['Date'],
+                y=SubDataFrameInstrumentOne['Cluster Density (K/mm2)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorsCluster, SubDataFrameInstrumentOne['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentOne['Date'].astype(str) + "<br>Cluster Density: " + SubDataFrameInstrumentOne['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+
+
+# Graph for last 20 runs InstrumentTwo
+fig_ClusterD.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentTwo['Date'],
+                y=SubDataFrameInstrumentTwo['Cluster Density (K/mm2)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorCluster, SubDataFrameInstrumentTwo['Cluster Density (K/mm2)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentTwo['Date'].astype(str) + "<br>Cluster Density: " + SubDataFrameInstrumentTwo['Cluster Density (K/mm2)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+fig_ClusterD.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=list(
+            [dict(label = 'All runs',
+            method = 'update',
+            args = [{'visible': [True, True, False, False, False, False, False, False]},
+            {'title': 'All runs',
+            'showlegend': True}]),
+
+            dict(label = 'Mid Output',
+            method = 'update',
+            args = [{'visible': [False, False, True, True, False, False, False, False]},
+            {'title': 'Mid Output',
+            'showlegend': True}]),
+
+            dict(label = 'High Output',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, True, True, False, False]},
+            {'title': 'High Output',
+            'showlegend': True}]),
+
+            dict(label = 'Last 20 runs',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, False, False, True, True]},
+            {'title': 'Last 20 runs',
+            'showlegend': True}]),
+            
+        ])
+    )
+])
+
+###########################################################
+######################### Q30 #############################
+###########################################################
+
+#### Color scheme for InstrumentOne Q30 ####
+def SetColorsQ30(y):
+        if(y > 70):
+                return 'royalblue'
+        elif(y < 70):
+                return 'red'
+
+#### Color scheme for InstrumentTwo Q30 ####
+def SetColorQ30(y):
+        if(y > 70):
+                return 'lightgreen'
+        elif(y < 70):
+                return 'red'
+
+
+
+
+fig_Q30 = make_subplots(rows=1, cols=2, subplot_titles=("Instrument One", "Instrument Two"), shared_yaxes=True)
+
+fig_Q30.update_layout(
+        plot_bgcolor=colors_ALL_plots['background'],
+        paper_bgcolor=colors_ALL_plots['background'],
+        font_color=colors_ALL_plots['text'])
+
+fig_Q30.update_yaxes(
+        title="% >=Q30", showticklabels=True
+)
+
+
+# Graph for all runs InstrumentOne
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentOne['Date'],
+                y=InstrumentOne['% >=Q30'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                marker=dict(
+                color=list(map(SetColorsQ30, InstrumentOne['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne['Date'].astype(str) + "<br>Q30: " + InstrumentOne['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for all runs InstrumentTwo
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentTwo['Date'],
+                y=InstrumentTwo['% >=Q30'],
+                name='InstrumentTwo',
+                mode='lines+markers', 
+                marker=dict(
+                color=list(map(SetColorQ30, InstrumentTwo['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo['Date'].astype(str) + "<br>Q30: " + InstrumentTwo['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Graph for Mid Output InstrumentOne
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentOne_Mid['Date'],
+                y=InstrumentOne_Mid['% >=Q30'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsQ30, InstrumentOne_Mid['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_Mid['Date'].astype(str) + "<br>Q30: " + InstrumentOne_Mid['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentOne_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for Mid Output InstrumentTwo
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_Mid['Date'],
+                y=InstrumentTwo_Mid['% >=Q30'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorQ30, InstrumentTwo_Mid['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_Mid['Date'].astype(str) + "<br>Q30: " + InstrumentTwo_Mid['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentTwo_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+# Graph for High Output InstrumentOne
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentOne_High['Date'],
+                y=InstrumentOne_High['% >=Q30'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsQ30, InstrumentOne_High['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_High['Date'].astype(str) + "<br>Q30: " + InstrumentOne_High['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentOne_High['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for High Output InstrumentTwo
+fig_Q30.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_High['Date'],
+                y=InstrumentTwo_High['% >=Q30'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorQ30, InstrumentTwo_High['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_High['Date'].astype(str) + "<br>Q30: " + InstrumentTwo_High['% >=Q30'].astype(str) + "<br>Flowcell: " + InstrumentTwo_High['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Grapg for the last 20 runs InstrumentOne
+fig_Q30.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentOne['Date'],
+                y=SubDataFrameInstrumentOne['% >=Q30'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorsQ30, SubDataFrameInstrumentOne['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentOne['Date'].astype(str) + "<br>Q30: " + SubDataFrameInstrumentOne['% >=Q30'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+
+
+# Graph for last 20 runs InstrumentTwo
+fig_Q30.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentTwo['Date'],
+                y=SubDataFrameInstrumentTwo['% >=Q30'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorQ30, SubDataFrameInstrumentTwo['% >=Q30'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentTwo['Date'].astype(str) + "<br>Q30: " + SubDataFrameInstrumentTwo['% >=Q30'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+fig_Q30.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=list(
+            [dict(label = 'All runs',
+            method = 'update',
+            args = [{'visible': [True, True, False, False, False, False, False, False]},
+            {'title': 'All runs',
+            'showlegend': True}]),
+
+            dict(label = 'Mid Output',
+            method = 'update',
+            args = [{'visible': [False, False, True, True, False, False, False, False]},
+            {'title': 'Mid Output',
+            'showlegend': True}]),
+
+            dict(label = 'High Output',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, True, True, False, False]},
+            {'title': 'High Output',
+            'showlegend': True}]),
+
+            dict(label = 'Last 20 runs',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, False, False, True, True]},
+            {'title': 'Last 20 runs',
+            'showlegend': True}]),
+            
+        ])
+    )
+])
+
+
+
+###########################################################
+################## Clusters Passing Filter ################
+###########################################################
+
+#### Color scheme for Instrument One Clusters Passing Filter ####
+
+def SetColorsClustersPF(y):
+        if(y > 80):
+                return 'royalblue'
+        elif(y < 80):
+                return 'red'
+
+#### Color scheme for Instrument Two Clusters Passing Filter ####
+
+def SetColorClustersPF(y):
+        if(y > 80):
+                return 'lightgreen'
+        elif(y < 80):
+                return 'red'
+
+
+
+
+fig_ClustersPF = make_subplots(rows=1, cols=2, subplot_titles=("Instrument One", "Instrument Two"), shared_yaxes=True)
+
+fig_ClustersPF.update_layout(
+        plot_bgcolor=colors_ALL_plots['background'],
+        paper_bgcolor=colors_ALL_plots['background'],
+        font_color=colors_ALL_plots['text'])
+
+fig_ClustersPF.update_yaxes(
+        title="Clusters Passing Filter (%)", showticklabels=True
+)
+
+
+# Graph for all runs InstrumentOne
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentOne['Date'],
+                y=InstrumentOne['Clusters Passing Filter (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                marker=dict(
+                color=list(map(SetColorsClustersPF, InstrumentOne['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentOne['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for all runs InstrumentTwo
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentTwo['Date'],
+                y=InstrumentTwo['Clusters Passing Filter (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers', 
+                marker=dict(
+                color=list(map(SetColorClustersPF, InstrumentTwo['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentTwo['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Graph for Mid Output InstrumentOne
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentOne_Mid['Date'],
+                y=InstrumentOne_Mid['Clusters Passing Filter (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsClustersPF, InstrumentOne_Mid['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_Mid['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentOne_Mid['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for Mid Output InstrumentTwo
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_Mid['Date'],
+                y=InstrumentTwo_Mid['Clusters Passing Filter (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorClustersPF, InstrumentTwo_Mid['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_Mid['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentTwo_Mid['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+# Graph for High Output InstrumentOne
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentOne_High['Date'],
+                y=InstrumentOne_High['Clusters Passing Filter (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsClustersPF, InstrumentOne_High['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_High['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentOne_High['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne_High['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for High Output InstrumentTwo
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_High['Date'],
+                y=InstrumentTwo_High['Clusters Passing Filter (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorClustersPF, InstrumentTwo_High['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_High['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + InstrumentTwo_High['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_High['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Grapg for the last 20 runs InstrumentOne
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentOne['Date'],
+                y=SubDataFrameInstrumentOne['Clusters Passing Filter (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorsClustersPF, SubDataFrameInstrumentOne['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentOne['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + SubDataFrameInstrumentOne['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+
+
+# Graph for last 20 runs InstrumentTwo
+fig_ClustersPF.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentTwo['Date'],
+                y=SubDataFrameInstrumentTwo['Clusters Passing Filter (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorClustersPF, SubDataFrameInstrumentTwo['Clusters Passing Filter (%)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentTwo['Date'].astype(str) + "<br>Clusters Passing Filter (%): " + SubDataFrameInstrumentTwo['Clusters Passing Filter (%)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+fig_ClustersPF.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=list(
+            [dict(label = 'All runs',
+            method = 'update',
+            args = [{'visible': [True, True, False, False, False, False, False, False]},
+            {'title': 'All runs',
+            'showlegend': True}]),
+
+            dict(label = 'Mid Output',
+            method = 'update',
+            args = [{'visible': [False, False, True, True, False, False, False, False]},
+            {'title': 'Mid Output',
+            'showlegend': True}]),
+
+            dict(label = 'High Output',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, True, True, False, False]},
+            {'title': 'High Output',
+            'showlegend': True}]),
+
+            dict(label = 'Last 20 runs',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, False, False, True, True]},
+            {'title': 'Last 20 runs',
+            'showlegend': True}]),
+            
+        ])
+    )
+])
+
+###########################################################
+########################## Error Rate #####################
+###########################################################
+
+#### Color scheme for Instrument One Error Rate ####
+
+def SetColorsError(y):
+        if(y > 1):
+                return 'red'
+        elif(y < 0.001):
+                return 'red'
+        elif(y < 1):
+                return 'royalblue'
+
+#### Color scheme for Instrument Two Error Rate ####
+def SetColorError(y):
+        if(y > 1):
+                return 'red'
+        elif(y < 0.001):
+                return 'red'      
+        elif(y < 1):
+                return 'lightgreen'
+
+
+
+
+fig_ErrorRate = make_subplots(rows=1, cols=2, subplot_titles=("Instrument One", "Instrument Two"), shared_yaxes=True)
+
+fig_ErrorRate.update_layout(
+        plot_bgcolor=colors_ALL_plots['background'],
+        paper_bgcolor=colors_ALL_plots['background'],
+        font_color=colors_ALL_plots['text'])
+
+fig_ErrorRate.update_yaxes(
+        title="Error Rate, Total (%)", showticklabels=True
+)
+
+
+# Graph for all runs InstrumentOne
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentOne['Date'],
+                y=InstrumentOne['Error Rate, Total (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                marker=dict(
+                color=list(map(SetColorsError, InstrumentOne['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne['Date'].astype(str) + "<br>Error Rate: " + InstrumentOne['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for all runs InstrumentTwo
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentTwo['Date'],
+                y=InstrumentTwo['Error Rate, Total (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers', 
+                marker=dict(
+                color=list(map(SetColorError, InstrumentTwo['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo['Date'].astype(str) + "<br>Error Rate: " + InstrumentTwo['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Graph for Mid Output InstrumentOne
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentOne_Mid['Date'],
+                y=InstrumentOne_Mid['Error Rate, Total (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsError, InstrumentOne_Mid['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_Mid['Date'].astype(str) + "<br>Error Rate: " + InstrumentOne_Mid['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for Mid Output InstrumentTwo
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_Mid['Date'],
+                y=InstrumentTwo_Mid['Error Rate, Total (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorError, InstrumentTwo_Mid['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_Mid['Date'].astype(str) + "<br>Error Rate: " + InstrumentTwo_Mid['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_Mid['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+# Graph for High Output InstrumentOne
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentOne_High['Date'],
+                y=InstrumentOne_High['Error Rate, Total (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorsError, InstrumentOne_High['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentOne_High['Date'].astype(str) + "<br>Error Rate: " + InstrumentOne_High['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentOne_High['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+# Graph for High Output InstrumentTwo
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=InstrumentTwo_High['Date'],
+                y=InstrumentTwo_High['Error Rate, Total (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly', 
+                marker=dict(
+                color=list(map(SetColorError, InstrumentTwo_High['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + InstrumentTwo_High['Date'].astype(str) + "<br>Error Rate: " + InstrumentTwo_High['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + InstrumentTwo_High['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+
+# Grapg for the last 20 runs InstrumentOne
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentOne['Date'],
+                y=SubDataFrameInstrumentOne['Error Rate, Total (%)'],
+                name='InstrumentOne',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorsError, SubDataFrameInstrumentOne['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentOne['Date'].astype(str) + "<br>Error Rate: " + SubDataFrameInstrumentOne['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentOne['NextSeq-kit version'] + "<br>Machine: InstrumentOne",
+                hoverinfo="text",
+                line_color='royalblue'),1,1
+        )
+
+
+
+# Graph for last 20 runs InstrumentTwo
+fig_ErrorRate.append_trace(
+        go.Scatter(
+                x=SubDataFrameInstrumentTwo['Date'],
+                y=SubDataFrameInstrumentTwo['Error Rate, Total (%)'],
+                name='InstrumentTwo',
+                mode='lines+markers',
+                visible = 'legendonly',
+                marker=dict(
+                color=list(map(SetColorError, SubDataFrameInstrumentTwo['Error Rate, Total (%)'])),
+                size=13),
+                hovertext="Date: " + SubDataFrameInstrumentTwo['Date'].astype(str) + "<br>Error Rate: " + SubDataFrameInstrumentTwo['Error Rate, Total (%)'].astype(str) + "<br>Flowcell: " + SubDataFrameInstrumentTwo['NextSeq-kit version'] + "<br>Machine: InstrumentTwo",
+                hoverinfo="text",
+                line_color='lightgreen'),1,2
+        )
+
+fig_ErrorRate.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=list(
+            [dict(label = 'All runs',
+            method = 'update',
+            args = [{'visible': [True, True, False, False, False, False, False, False]},
+            {'title': 'All runs',
+            'showlegend': True}]),
+
+            dict(label = 'Mid Output',
+            method = 'update',
+            args = [{'visible': [False, False, True, True, False, False, False, False]},
+            {'title': 'Mid Output',
+            'showlegend': True}]),
+
+            dict(label = 'High Output',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, True, True, False, False]},
+            {'title': 'High Output',
+            'showlegend': True}]),
+
+            dict(label = 'Last 20 runs',
+            method = 'update',
+            args = [{'visible': [False, False, False, False, False, False, True, True]},
+            {'title': 'Last 20 runs',
+            'showlegend': True}]),
+            
+        ])
+    )
+])
+
+
+######################### Plot the all #################################
+
+app.layout = html.Div(children=[
+##### New Div for all elements in the new "row" of the page #####
+##### Displays for instrument Instrument One starts here #####
+	html.Div(style={'backgroundColor': colors_ALL_plots['background']}, children=[
+		html.H1(children='Cluster Density for NextSeq', 
+			style={
+				'textAlign': 'center',
+				'color': colors_ALL_plots['text']}
+		),
+
+		html.Div(children='''NextSeq Instrument: InstrumentOne and InstrumentTwo''',
+			style={
+                               	'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}			
+		),
+
+
+		html.Div(children='''Recommended Cluster Density is between 170-220 K/mm2''',
+			style={
+                               	'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+		
+		dcc.Graph(
+			id='Cluster Density',
+			figure=fig_ClusterD
+		),
+	]),
+
+        html.Div(style={'backgroundColor': colors_ALL_plots['background']}, children=[
+                html.H1(children='% >= Q30 for NextSeq',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}	
+		),
+
+                html.Div(children='''NextSeq Instrument: InstrumentOne and InstrumentTwo''',
+		        style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+
+                html.Div(children='''Recommended value of Q30 is > 70%''',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+                dcc.Graph(
+                        id='Q30',
+                        figure=fig_Q30
+                ),
+        ]),
+
+	html.Div(style={'backgroundColor': colors_ALL_plots['background']}, children=[
+                html.H1(children='Clusters Passing Filter (%) for NextSeq',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}	
+		),
+
+                html.Div(children='''NextSeq Instrument: InstrumentOne and InstrumentTwo''',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+
+		html.Div(children='''Recommended Clusters Passing Filters is > 80%''',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+		
+                dcc.Graph(
+                        id='Clusters Passing Filter (%)',
+                        figure=fig_ClustersPF
+                ),
+        ]),
+
+
+	html.Div(style={'backgroundColor': colors_ALL_plots['background']}, children=[
+                html.H1(children='Error Rate (%) for NextSeq',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}	
+		),
+
+                html.Div(children='''NextSeq Instrument: InstrumentOne and InstrumentTwo''',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+
+		html.Div(children='''Recommended Error Rate is < 1.0%''',
+			style={
+                                'textAlign': 'center',
+                                'color': colors_ALL_plots['text']}
+		),
+		
+                dcc.Graph(
+                        id='Error Rate (%)',
+                        figure=fig_ErrorRate
+                ),
+        ]),
+
+
+
+
+])
+
+
+
+
+if __name__== '__main__':
+        app.run_server(debug=True)
