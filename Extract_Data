@@ -1,0 +1,215 @@
+### The code in this file is adapted from https://github.com/Illumina/interop/blob/master/docs/src/Tutorial_01_Intro.ipynb
+
+### This code is used for extracting Interop data from Illumina NextSeq instruments and data from the samplesheet, 
+### and adding the data as a new line in a csv file for each sequencing run 
+
+run_folder = r'/home/NextSeqDemo_MidOutput'
+
+#### This is for sequencing dictionary/dataframe
+from interop import py_interop_run_metrics
+run_metrics = py_interop_run_metrics.run_metrics()
+run_folder2 = run_metrics.read(run_folder)
+
+from interop import py_interop_run
+valid_to_load = py_interop_run.uchar_vector(py_interop_run.MetricCount, 0)
+py_interop_run_metrics.list_summary_metrics_to_load(valid_to_load)
+run_folder3 = run_metrics.read(run_folder, valid_to_load)
+
+from interop import py_interop_summary
+summary = py_interop_summary.run_summary()
+py_interop_summary.summarize_run_metrics(run_metrics, summary)
+
+
+
+### This is for Index dictionary/dataframe - Getting SAV Indexing Tab-like Metrics for example CV
+index_summary = py_interop_summary.index_flowcell_summary()
+py_interop_summary.summarize_index_metrics(run_metrics, index_summary)
+lane_summary = index_summary.at(0)
+
+
+
+### a dataframe for indexing % Reads identified per sample and index
+import pandas as pd
+columns = ( ('Index Number', 'id'), ('Sample Id', 'sample_id'), ('Project', 'project_name'), ('Index 1 (I7)', 'index1'), ('Index 2 (I5)', 'index2'), ('% Reads Identified (PF)', 'fraction_mapped'))
+lane_summary = index_summary.at(0)
+
+dtuple = []
+for label, func in columns:
+    dtuple.append( (label, pd.Series([getattr(lane_summary.at(i), func)() for i in range(lane_summary.size())], index=[lane_summary.at(i).id() for i in range(lane_summary.size())])))
+
+dictionary2 = dict(dtuple)  # convert tuple to dictionary 
+
+# add columns and values from the created dictionary
+index_dict = {}
+index_dict['Sample ID'] = dictionary2['Sample Id']
+index_dict['Index 1 (I7)'] = dictionary2['Index 1 (I7)']
+index_dict['% Reads Identified (PF)'] = dictionary2['% Reads Identified (PF)']
+
+
+
+### Creating a dictionary for the sequencing information
+
+import pandas as pd
+import re
+columns = (('Yield Total (G)', 'yield_g'), ('Error rate', 'error_rate'), ('% Aligned PhiX', 'percent_aligned'), ('% >= Q30', 'percent_gt_q30'))
+rows = [('Total', summary.total_summary())]
+
+d = []   #this is a tuple
+
+for label, func in columns:
+    d.append((label, pd.Series([getattr(r[1], func)() for r in rows], index=[r[0] for r in rows])))
+
+dictionary = dict(d)   # convert tuple to dictionary
+
+seq_dict = {}  #create a new dictionary without the "float64" text
+
+# add an empty column in the beginning to match existing excel file
+seq_dict[''] = ''
+
+#this willl add the date to the dictionary
+from interop import py_interop_run
+run_info = py_interop_run.info()
+run_info.read(run_folder)
+seq_dict['Sekv. datum'] = run_info.date()  #to get the date in the first column
+
+
+# Add Sample ID's to sequencing information dict (seq_dict)
+intermediate_dict = {}
+intermediate_dict['Samples'] = index_dict['Sample ID']
+
+samplelist = []
+for item in intermediate_dict['Samples']:
+    samplelist.append(item)
+    
+seq_dict['Provnr.'] = samplelist
+
+# Add which sequencing machine was used
+### do improvement here, if instrument name is NBXXXXXXX this means for example our name of the instrument is XX******
+seq_dict['NextSeq'] = run_info.instrument_name()
+
+# adding empty keys where the information must be written manually after each run
+seq_dict['Antalet prov'] = ''
+seq_dict['NextSeq-kit version'] = run_info.flowcell_id()
+seq_dict['Poolat bibliotek pM'] = ''
+seq_dict['Andel PhiX %'] = ''
+
+
+# convert flowcell ID to mid- or high output
+flowcell = ''
+for letter in seq_dict['NextSeq-kit version']:
+    flowcell+=str(letter)
+       
+if flowcell[-4:].startswith('AF'):
+    seq_dict['NextSeq-kit version'] = 'Mid Output'
+elif flowcell[-4:].startswith('BG'):
+    seq_dict['NextSeq-kit version'] = 'High Output'            
+elif flowcell[-4:].startswith('AG'):
+    seq_dict['NextSeq-kit version'] = 'High Output'       
+
+# add more columns and values to dict from the converted tuple
+seq_dict['% >= Q30'] = round(dictionary['% >= Q30'][0])
+
+#### get Read summary statistics 
+import statistics as stat
+
+lane_index=0     # index of lane 1
+read_index=0     # index of read 1
+read_index1=1    # index of read 2
+read_index2=2    # index of read 3
+read_index3=3    # index of read 4
+
+# Get Cluster Density in thousands
+read_one = summary.at(read_index).at(lane_index).density().mean()
+read_two = summary.at(read_index1).at(lane_index).density().mean()
+read_three = summary.at(read_index2).at(lane_index).density().mean()
+read_four = summary.at(read_index3).at(lane_index).density().mean()
+Cluster_Density = round((stat.mean([read_one, read_two, read_three, read_four]))/1000)
+
+# Get Reads passing filter in millions
+read_ones = summary.at(read_index).at(lane_index).reads_pf()
+read_twos = summary.at(read_index1).at(lane_index).reads_pf()
+read_threes = summary.at(read_index2).at(lane_index).reads_pf()
+read_fours = summary.at(read_index3).at(lane_index).reads_pf()
+Reads_PF = round((read_ones + read_twos + read_threes + read_fours)/1000000)
+
+# Since the value may or may not define the mean, standard deviation, median statistics, 
+# we define a simple function to detect whether it does and then format it appropriately.
+
+def format_value(val):
+    if hasattr(val, 'mean'):
+        return val.mean()
+    else:
+        return val
+
+# Get Clusters passing filter in percent (%)
+read = 0
+columns = ( ('Lane', 'lane'), ('Tiles', 'tile_count'), ('Density (K/mm2)', 'density'), ('Reads PF', 'reads_pf'), ('Cluster PF', 'percent_pf'))
+rows = [summary.at(read).at(lane) for lane in range(summary.lane_count())]
+
+tup = []
+for label, func in columns:
+    tup.append( (label, pd.Series([format_value(getattr(r, func)()) for r in rows])))
+
+dictionary1 = dict(tup)   # convert tuple to dictionary
+
+# add more columns and values to the created dictionary and from summary statistics
+seq_dict['Cluster Density (K/mm2)'] = Cluster_Density
+seq_dict['Cluster Passing Filter (%)'] = round(dictionary1['Cluster PF'][0])
+
+
+# add more columns and values to dict from the converted tuple and from summary statistics
+seq_dict['Yield Total (G)'] = round(dictionary['Yield Total (G)'][0])
+seq_dict['% Aligned PhiX'] = round(dictionary['% Aligned PhiX'][0], 2)
+seq_dict['Error rate'] = round(dictionary['Error rate'][0], 2)
+seq_dict['Reads Passing Filter (M)'] = Reads_PF
+
+
+# Getting SAV Indexing Tab-like Metrics for example CV
+seq_dict['Indexing CV'] = round(lane_summary.mapped_reads_cv(),3)
+
+
+# Extract Investigator Name and Worksheet number in SampleSheet.csv and import it
+
+from pathlib import Path
+import re
+
+data_folder = Path(run_folder)
+file_to_open = data_folder / "SampleSheet.csv"
+
+f = open(file_to_open)
+
+SampleSheetList = []
+       
+for line in f:
+    if line.startswith('Investigator'):
+        line1 = str(line)
+        line2 = line1.strip('Investigator Name,').rstrip('\n')
+        SampleSheetList.append(line2)     
+    if line.startswith('Experiment'):
+        line4 = str(line)
+        line5 = line4.strip('Experiment Name,').rstrip('\n')
+        line6 = line5.split('-Archer',1)
+        SampleSheetList.append(line6[0])
+
+seq_dict['Performed by'] = SampleSheetList[0]
+seq_dict['Comments'] =SampleSheetList[1]
+
+
+f.close()
+
+# convert sequencing information dict to dataframe
+df = pd.DataFrame.from_dict(seq_dict, orient='index')
+seq_data = df.transpose()  #get correct orientation of the dataframe
+
+#  Append the row to existing csv document
+seq_data.to_csv('/home/File.csv', mode='a', index=False, header=False)
+
+
+### comment out or remove this section when code is implemented  ####
+#center align values in the dataframe
+def pd_centered(data_frame):
+    return seq_data.style.set_table_styles([
+        {"selector": "th", "props": [("text-align", "center")]},
+        {"selector": "td", "props": [("text-align", "center")]}])
+
+pd_centered(seq_data)
