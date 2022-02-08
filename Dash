@@ -877,7 +877,7 @@ fig_ErrorRate.update_layout(
 ])
 
 
-######################### Plot the all #################################
+######################### Plot them all #################################
 
 app.layout = html.Div(children=[
 ##### New Div for all elements in the new "row" of the page #####
